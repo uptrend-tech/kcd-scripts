@@ -22,6 +22,8 @@
 
 ## The problem
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/uptrend-tech/uptrend-scripts.svg)](https://greenkeeper.io/)
+
 I do a bunch of open source and want to make it easier to maintain so many
 projects.
 
