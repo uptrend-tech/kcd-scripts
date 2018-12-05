@@ -7,7 +7,11 @@ const args = process.argv.slice(2)
 const here = p => path.join(__dirname, p)
 
 const useBuiltinConfig =
-  !args.includes('--presets') && !hasFile('.babelrc') && !hasPkgProp('babel')
+  !args.includes('--presets') &&
+  !hasFile('.babelrc') &&
+  !hasFile('.babelrc.js') &&
+  !hasFile('babel.config.js') &&
+  !hasPkgProp('babel')
 const config = useBuiltinConfig
   ? ['--presets', here('../../config/babelrc.js')]
   : []
@@ -26,7 +30,7 @@ if (!useSpecifiedOutDir && !args.includes('--no-clean')) {
 }
 
 const result = spawn.sync(
-  resolveBin('babel-cli', {executable: 'babel'}),
+  resolveBin('@babel/cli', {executable: 'babel'}),
   [...outDir, ...copyFiles, ...ignore, ...config, 'src'].concat(args),
   {stdio: 'inherit'},
 )

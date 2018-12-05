@@ -6,9 +6,10 @@ const commonjs = require('rollup-plugin-commonjs')
 const nodeResolve = require('rollup-plugin-node-resolve')
 const json = require('rollup-plugin-json')
 const replace = require('rollup-plugin-replace')
-const uglify = require('rollup-plugin-uglify')
+const {terser} = require('rollup-plugin-terser')
 const nodeBuiltIns = require('rollup-plugin-node-builtins')
 const nodeGlobals = require('rollup-plugin-node-globals')
+const {sizeSnapshot} = require('rollup-plugin-size-snapshot')
 const omit = require('lodash.omit')
 const {
   pkg,
@@ -29,6 +30,10 @@ const format = process.env.BUILD_FORMAT
 const isPreact = parseEnv('BUILD_PREACT', false)
 const isNode = parseEnv('BUILD_NODE', false)
 const name = process.env.BUILD_NAME || capitalize(camelcase(pkg.name))
+const useSizeSnapshot = parseEnv('BUILD_SIZE_SNAPSHOT', false)
+
+const esm = format === 'esm'
+const umd = format === 'umd'
 
 const defaultGlobals = Object.keys(pkg.peerDependencies || {}).reduce(
   (deps, dep) => {
@@ -38,7 +43,9 @@ const defaultGlobals = Object.keys(pkg.peerDependencies || {}).reduce(
   {},
 )
 
-const defaultExternal = Object.keys(pkg.peerDependencies || {})
+const deps = Object.keys(pkg.dependencies || {})
+const peerDeps = Object.keys(pkg.peerDependencies || {})
+const defaultExternal = umd ? peerDeps : deps.concat(peerDeps)
 
 const input = glob.sync(
   fromRoot(
@@ -84,9 +91,6 @@ const externalPattern = new RegExp(`^(${external.join('|')})($|/)`)
 const externalPredicate =
   external.length === 0 ? () => false : id => externalPattern.test(id)
 
-const esm = format === 'esm'
-const umd = format === 'umd'
-
 const filename = [
   pkg.name,
   filenameSuffix,
@@ -111,7 +115,11 @@ const output = [
   },
 ]
 
-const useBuiltinConfig = !hasFile('.babelrc') && !hasPkgProp('babel')
+const useBuiltinConfig =
+  !hasFile('.babelrc') &&
+  !hasFile('.babelrc.js') &&
+  !hasFile('babel.config.js') &&
+  !hasPkgProp('babel')
 const babelPresets = useBuiltinConfig ? [here('../config/babelrc.js')] : []
 
 const replacements = Object.entries(
@@ -139,12 +147,13 @@ module.exports = {
     commonjs({include: 'node_modules/**'}),
     json(),
     rollupBabel({
-      exclude: 'node_modules/**',
       presets: babelPresets,
-      babelrc: true,
+      babelrc: !useBuiltinConfig,
+      runtimeHelpers: useBuiltinConfig,
     }),
     replace(replacements),
-    minify ? uglify() : null,
+    useSizeSnapshot ? sizeSnapshot({printInfo: false}) : null,
+    minify ? terser() : null,
     codeSplitting &&
       ((writes = 0) => ({
         onwrite() {
